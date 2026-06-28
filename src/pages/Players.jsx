@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useUsers } from '../hooks/useUsers'
 import { useLoans } from '../hooks/useLoans'
+import { getDailyBalances } from '../services/dailyBalance.service'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import { CURRENCY_SYMBOL } from '../config/constants'
 
@@ -11,7 +13,12 @@ const COLORS = [
   '#10b981', '#6366f1', '#f59e0b', '#ef4444', '#3b82f6',
   '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
 ]
-const TABS = ['Table', 'Pie Chart']
+const TABS = ['Table', 'Pie Chart', 'Line Chart']
+const PERIODS = [
+  { label: '7 days', days: 7 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
+]
 
 function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, name }) {
   const RADIAN = Math.PI / 180
@@ -22,6 +29,102 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, name }) {
     <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11}>
       {name.split(' ')[0]}
     </text>
+  )
+}
+
+function BalanceLine({ users }) {
+  const [period, setPeriod] = useState(7)
+  const [chartData, setChartData] = useState([])
+  const [loadingChart, setLoadingChart] = useState(false)
+
+  useEffect(() => {
+    if (users.length === 0) return
+    setLoadingChart(true)
+    Promise.all(users.map((u) => getDailyBalances(u.id, period).then((rows) => ({ id: u.id, rows }))))
+      .then((results) => {
+        const map = new Map()
+        results.forEach(({ id, rows }) => {
+          const name = users.find((u) => u.id === id)?.displayName ?? id
+          rows.forEach((r) => {
+            if (!map.has(r.date)) map.set(r.date, { date: r.date })
+            map.get(r.date)[name] = r.balance
+          })
+        })
+        setChartData(Array.from(map.values()).sort((a, b) => (a.date > b.date ? 1 : -1)))
+      })
+      .catch(() => setChartData([]))
+      .finally(() => setLoadingChart(false))
+  }, [users, period])
+
+  const fmt = (v) => `${CURRENCY_SYMBOL}${v?.toLocaleString('en-IN')}`
+  const fmtAxis = (v) => {
+    if (v >= 100000) return `${CURRENCY_SYMBOL}${(v / 100000).toFixed(1)}L`
+    if (v >= 1000) return `${CURRENCY_SYMBOL}${(v / 1000).toFixed(0)}k`
+    return `${CURRENCY_SYMBOL}${v}`
+  }
+
+  return (
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-4">
+      <div className="flex justify-end">
+        <div className="flex bg-gray-900 border border-gray-700 rounded-lg p-0.5 gap-0.5">
+          {PERIODS.map(({ label, days }) => (
+            <button
+              key={days}
+              onClick={() => setPeriod(days)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                period === days ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loadingChart ? (
+        <div className="h-64 flex items-center justify-center">
+          <div className="w-6 h-6 rounded-full border-2 border-gray-700 border-t-emerald-400 animate-spin" />
+        </div>
+      ) : chartData.length === 0 ? (
+        <p className="text-gray-500 text-sm text-center py-12">No history yet</p>
+      ) : (
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={chartData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tickFormatter={(d) => d.slice(5)}
+            />
+            <YAxis
+              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tickFormatter={fmtAxis}
+              width={60}
+            />
+            <Tooltip
+              formatter={(v, name) => [fmt(v), name]}
+              labelFormatter={(d) => `Date: ${d}`}
+              contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#fff' }}
+            />
+            <Legend
+              formatter={(value) => <span style={{ color: '#d1d5db', fontSize: 12 }}>{value}</span>}
+            />
+            {users.map((u, i) => (
+              <Line
+                key={u.id}
+                type="monotone"
+                dataKey={u.displayName}
+                stroke={COLORS[i % COLORS.length]}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+    </div>
   )
 }
 
@@ -66,7 +169,6 @@ export default function Players() {
         ))}
       </div>
 
-      {/* Table */}
       {tab === 'Table' && (
         <div className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
           <div className="grid grid-cols-4 px-4 py-2.5 bg-gray-900/60 border-b border-gray-700 text-gray-400 text-xs font-medium uppercase tracking-wide">
@@ -147,6 +249,8 @@ export default function Players() {
             </div>
           )
       )}
+
+      {tab === 'Line Chart' && <BalanceLine users={sorted} />}
     </div>
   )
 }

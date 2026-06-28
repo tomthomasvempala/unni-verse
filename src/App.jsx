@@ -10,6 +10,7 @@ import Players from './pages/Players'
 import AdminHome from './pages/AdminHome'
 import AdminTransactions from './pages/AdminTransactions'
 import AdminPlayers from './pages/AdminPlayers'
+import AdminDatabase from './pages/AdminDatabase'
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useAuth()
@@ -58,6 +59,7 @@ function AppRoutes() {
         <Route index element={<AdminHome />} />
         <Route path="transactions" element={<AdminTransactions />} />
         <Route path="players" element={<AdminPlayers />} />
+        <Route path="database" element={<AdminDatabase />} />
       </Route>
 
       {/* Normal user shell — admins get redirected to /admin */}

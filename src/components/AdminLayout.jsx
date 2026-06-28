@@ -1,11 +1,12 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { Home, Receipt, Users, Shield, LogOut, Coins } from 'lucide-react'
+import { Home, Receipt, Users, Shield, LogOut, Coins, Database } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/admin', icon: Home, label: 'Home' },
   { to: '/admin/transactions', icon: Receipt, label: 'Transactions' },
   { to: '/admin/players', icon: Users, label: 'Players' },
+  { to: '/admin/database', icon: Database, label: 'Database' },
 ]
 
 const navClass = ({ isActive }) =>
