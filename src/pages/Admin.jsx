@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Shield, Building2, CheckCircle, XCircle, ArrowDownLeft, ArrowUpRight, Users } from 'lucide-react'
+import { Shield, Building2, CheckCircle, XCircle, ArrowDownLeft, ArrowUpRight, Users, LogOut, Coins } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useUsers } from '../hooks/useUsers'
 import { useLoans } from '../hooks/useLoans'
@@ -16,7 +16,7 @@ const inputCls =
   'w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500'
 
 export default function Admin() {
-  const { userProfile } = useAuth()
+  const { userProfile, logout } = useAuth()
   const users = useUsers()
   const reserve = useGovernment()
   const loans = useLoans(userProfile?.id, true)
@@ -91,7 +91,27 @@ export default function Admin() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl space-y-6">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      {/* Standalone header */}
+      <header className="bg-gray-900 border-b border-gray-800 px-4 md:px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Coins className="text-emerald-400" size={22} />
+          <span className="text-white font-bold">Unni-verse</span>
+          <span className="hidden sm:flex items-center gap-1.5 bg-purple-900/50 border border-purple-800/50 text-purple-300 text-xs font-medium px-2.5 py-1 rounded-full">
+            <Shield size={11} />
+            Admin
+          </span>
+        </div>
+        <button
+          onClick={logout}
+          className="flex items-center gap-2 text-gray-400 hover:text-red-400 transition-colors text-sm font-medium"
+        >
+          <LogOut size={16} />
+          <span className="hidden sm:inline">Sign out</span>
+        </button>
+      </header>
+
+      <div className="flex-1 p-4 md:p-6 max-w-3xl w-full mx-auto space-y-6">
       <div className="flex items-center gap-2">
         <Shield className="text-purple-400" size={22} />
         <h1 className="text-white text-2xl font-bold">Admin Panel</h1>
@@ -312,6 +332,7 @@ export default function Admin() {
         )}
       </div>
       </>}
+      </div>
     </div>
   )
 }

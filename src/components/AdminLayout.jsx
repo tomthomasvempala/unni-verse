@@ -1,35 +1,26 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import {
-  Home,
-  Landmark,
-  Receipt,
-  Users,
-  LogOut,
-  Coins,
-} from 'lucide-react'
+import { Home, Receipt, Users, Shield, LogOut, Coins } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { CURRENCY_SYMBOL } from '../config/constants'
 
 const NAV_ITEMS = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/loans', icon: Landmark, label: 'Loans' },
-  { to: '/transactions', icon: Receipt, label: 'Transactions' },
-  { to: '/players', icon: Users, label: 'Players' },
+  { to: '/admin', icon: Home, label: 'Home' },
+  { to: '/admin/transactions', icon: Receipt, label: 'Transactions' },
+  { to: '/admin/players', icon: Users, label: 'Players' },
 ]
 
 const navClass = ({ isActive }) =>
   `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
     isActive
-      ? 'bg-emerald-600 text-white'
+      ? 'bg-purple-700 text-white'
       : 'text-gray-400 hover:text-white hover:bg-gray-800'
   }`
 
 const mobileNavClass = ({ isActive }) =>
   `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-    isActive ? 'text-emerald-400' : 'text-gray-500'
+    isActive ? 'text-purple-400' : 'text-gray-500'
   }`
 
-export default function Layout() {
+export default function AdminLayout() {
   const { userProfile, logout } = useAuth()
 
   return (
@@ -42,31 +33,21 @@ export default function Layout() {
             <Coins className="text-emerald-400" size={24} />
             <span className="text-white font-bold text-lg">Unni-verse</span>
           </div>
-          <p className="text-gray-500 text-xs mt-1">Virtual Economy</p>
+          <div className="flex items-center gap-1.5 mt-2">
+            <Shield className="text-purple-400" size={13} />
+            <span className="text-purple-400 text-xs font-medium">Admin Panel</span>
+          </div>
         </div>
 
         {/* User info */}
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            {userProfile?.photoURL ? (
-              <img
-                src={userProfile.photoURL}
-                className="w-9 h-9 rounded-full ring-2 ring-gray-700"
-                alt=""
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white text-sm font-bold">
-                {userProfile?.displayName?.[0]?.toUpperCase()}
-              </div>
-            )}
+            <div className="w-9 h-9 rounded-full bg-purple-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              G
+            </div>
             <div className="min-w-0">
-              <p className="text-white text-sm font-medium truncate">
-                {userProfile?.displayName}
-              </p>
-              <p className="text-amber-400 text-sm font-bold">
-                {CURRENCY_SYMBOL}
-                {userProfile?.balance?.toLocaleString('en-IN') ?? 0}
-              </p>
+              <p className="text-white text-sm font-medium truncate">Government</p>
+              <p className="text-purple-400 text-xs">Administrator</p>
             </div>
           </div>
         </div>
@@ -74,7 +55,7 @@ export default function Layout() {
         {/* Nav */}
         <nav className="flex-1 p-4 space-y-1">
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} end={to === '/'} className={navClass}>
+            <NavLink key={to} to={to} end={to === '/admin'} className={navClass}>
               <Icon size={18} />
               {label}
             </NavLink>
@@ -100,15 +81,9 @@ export default function Layout() {
           <div className="flex items-center gap-2">
             <Coins className="text-emerald-400" size={20} />
             <span className="text-white font-bold">Unni-verse</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {userProfile?.photoURL && (
-              <img src={userProfile.photoURL} className="w-7 h-7 rounded-full" alt="" />
-            )}
-            <p className="text-amber-400 font-bold text-sm">
-              {CURRENCY_SYMBOL}
-              {userProfile?.balance?.toLocaleString('en-IN') ?? 0}
-            </p>
+            <span className="flex items-center gap-1 text-purple-400 text-xs font-medium">
+              <Shield size={11} />Admin
+            </span>
           </div>
         </header>
 
@@ -119,7 +94,7 @@ export default function Layout() {
         {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 flex z-40">
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} end={to === '/'} className={mobileNavClass}>
+            <NavLink key={to} to={to} end={to === '/admin'} className={mobileNavClass}>
               <Icon size={20} />
               {label}
             </NavLink>
@@ -136,4 +111,3 @@ export default function Layout() {
     </div>
   )
 }
-

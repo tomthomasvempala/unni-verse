@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Clock, CheckCircle, XCircle, AlertCircle, TrendingDown } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, AlertCircle, TrendingDown, ArrowDownLeft, ArrowUpRight, Scissors } from 'lucide-react'
 import Modal from './Modal'
 import { CURRENCY_SYMBOL } from '../config/constants'
-import { offerLoan, acceptLoan, rejectLoan, repayLoan } from '../domain/loan.domain'
+import { offerLoan, acceptLoan, rejectLoan, repayLoan, adjustLoanBalance, settleLoan } from '../domain/loan.domain'
 
 const STATUS = {
   pending: { label: 'Pending', color: 'text-amber-400', bg: 'bg-amber-900/30', Icon: Clock },
@@ -15,8 +15,10 @@ const STATUS = {
 export default function LoanCard({ loan, currentUserId, users }) {
   const [offerAmount, setOfferAmount] = useState('')
   const [repayAmount, setRepayAmount] = useState('')
+  const [reduceAmount, setReduceAmount] = useState('')
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [showRepayModal, setShowRepayModal] = useState(false)
+  const [showReduceModal, setShowReduceModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -56,11 +58,24 @@ export default function LoanCard({ loan, currentUserId, users }) {
     run(() => repayLoan(loan.id, currentUserId, amt), () => { setShowRepayModal(false); setRepayAmount('') })
   }
 
+  const handleReduce = () => {
+    const amt = parseFloat(reduceAmount)
+    if (!amt || amt <= 0) return setError('Enter a valid amount')
+    run(() => adjustLoanBalance(loan.id, amt), () => { setShowReduceModal(false); setReduceAmount('') })
+  }
+
+  // Direction badge
+  const directionBadge = loan.status !== 'repaid' && loan.status !== 'rejected' && (
+    isLender
+      ? <span className="flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-900/30 px-2 py-0.5 rounded-full flex-shrink-0"><ArrowDownLeft size={11} />Incoming</span>
+      : <span className="flex items-center gap-1 text-xs font-medium text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full flex-shrink-0"><ArrowUpRight size={11} />Outgoing</span>
+  )
+
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <div>
+        <div className="flex-1 min-w-0">
           <p className="text-white text-sm font-medium">
             {isRequester
               ? `Borrowed from ${lender?.displayName ?? '…'}`
@@ -73,9 +88,12 @@ export default function LoanCard({ loan, currentUserId, users }) {
               ` · Repay ${CURRENCY_SYMBOL}${loan.repaymentAmount.toLocaleString('en-IN')}`}
           </p>
         </div>
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full flex-shrink-0 ${s.bg}`}>
-          <s.Icon className={s.color} size={12} />
-          <span className={`${s.color} text-xs font-medium`}>{s.label}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {directionBadge}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${s.bg}`}>
+            <s.Icon className={s.color} size={12} />
+            <span className={`${s.color} text-xs font-medium`}>{s.label}</span>
+          </div>
         </div>
       </div>
 
@@ -102,7 +120,7 @@ export default function LoanCard({ loan, currentUserId, users }) {
       {error && <p className="text-red-400 text-xs">{error}</p>}
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {/* Lender sees pending loan */}
         {loan.status === 'pending' && isLender && (
           <>
@@ -111,7 +129,7 @@ export default function LoanCard({ loan, currentUserId, users }) {
               disabled={loading}
               className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2 rounded-lg text-xs font-medium transition-colors"
             >
-              Approve & Set Terms
+              Approve &amp; Set Terms
             </button>
             <button
               onClick={() => run(() => rejectLoan(loan.id))}
@@ -160,6 +178,27 @@ export default function LoanCard({ loan, currentUserId, users }) {
           >
             Make Repayment
           </button>
+        )}
+
+        {/* Lender can reduce balance or fully settle active loan */}
+        {loan.status === 'active' && isLender && (
+          <>
+            <button
+              onClick={() => { setError(''); setShowReduceModal(true) }}
+              disabled={loading}
+              className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-300 hover:text-white py-2 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1"
+            >
+              <Scissors size={12} />
+              Reduce
+            </button>
+            <button
+              onClick={() => run(() => settleLoan(loan.id))}
+              disabled={loading}
+              className="flex-1 bg-emerald-900/50 hover:bg-emerald-700 disabled:opacity-50 text-emerald-300 hover:text-white py-2 rounded-lg text-xs font-medium transition-colors"
+            >
+              Settle
+            </button>
+          </>
         )}
       </div>
 
@@ -228,6 +267,45 @@ export default function LoanCard({ loan, currentUserId, users }) {
             className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
             {loading ? 'Processing…' : 'Repay'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Reduce balance modal */}
+      <Modal isOpen={showReduceModal} onClose={() => setShowReduceModal(false)} title="Reduce Balance">
+        <div className="space-y-4">
+          <p className="text-gray-400 text-sm">
+            Remaining:{' '}
+            <span className="text-white font-medium">
+              {CURRENCY_SYMBOL}
+              {loan.remainingBalance?.toLocaleString('en-IN')}
+            </span>
+            <br />
+            <span className="text-xs">
+              Enter the amount to forgive. The borrower will owe less.
+            </span>
+          </p>
+          <div>
+            <label className="text-gray-300 text-sm font-medium block mb-2">
+              Amount to reduce
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={loan.remainingBalance}
+              placeholder={`Max ${CURRENCY_SYMBOL}${loan.remainingBalance}`}
+              value={reduceAmount}
+              onChange={(e) => setReduceAmount(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button
+            onClick={handleReduce}
+            disabled={loading}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            {loading ? 'Updating…' : 'Reduce Balance'}
           </button>
         </div>
       </Modal>

@@ -4,25 +4,17 @@ import { useLoans } from '../hooks/useLoans'
 import { useUsers } from '../hooks/useUsers'
 import LoanCard from '../components/LoanCard'
 
-const TABS = ['Incoming', 'Outgoing', 'Active', 'History']
+const TABS = ['Active', 'Closed']
 
 export default function Loans() {
   const { userProfile } = useAuth()
   const loans = useLoans(userProfile?.id)
   const users = useUsers()
-  const [tab, setTab] = useState('Incoming')
-
-  const uid = userProfile?.id
+  const [tab, setTab] = useState('Active')
 
   const buckets = {
-    Incoming: loans.filter(
-      (l) => l.lenderId === uid && ['pending', 'offered'].includes(l.status)
-    ),
-    Outgoing: loans.filter(
-      (l) => l.requesterId === uid && ['pending', 'offered'].includes(l.status)
-    ),
-    Active: loans.filter((l) => l.status === 'active'),
-    History: loans.filter((l) => ['repaid', 'rejected'].includes(l.status)),
+    Active: loans.filter((l) => ['pending', 'offered', 'active'].includes(l.status)),
+    Closed: loans.filter((l) => ['repaid', 'rejected'].includes(l.status)),
   }
 
   return (
@@ -60,7 +52,7 @@ export default function Loans() {
             <LoanCard
               key={loan.id}
               loan={loan}
-              currentUserId={uid}
+              currentUserId={userProfile?.id}
               users={users}
             />
           ))
@@ -69,3 +61,4 @@ export default function Loans() {
     </div>
   )
 }
+

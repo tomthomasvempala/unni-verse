@@ -1,17 +1,28 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
+import AdminLayout from './components/AdminLayout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Loans from './pages/Loans'
 import Transactions from './pages/Transactions'
-import Admin from './pages/Admin'
+import Players from './pages/Players'
+import AdminHome from './pages/AdminHome'
+import AdminTransactions from './pages/AdminTransactions'
+import AdminPlayers from './pages/AdminPlayers'
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useAuth()
   return currentUser ? children : <Navigate to="/login" replace />
 }
 
+// Admins are sent straight to /admin; normal users use this layout
+function UserRoute({ children }) {
+  const { userProfile } = useAuth()
+  return userProfile?.isAdmin ? <Navigate to="/admin" replace /> : children
+}
+
+// Only admins can access admin routes
 function AdminRoute({ children }) {
   const { userProfile } = useAuth()
   return userProfile?.isAdmin ? children : <Navigate to="/" replace />
@@ -32,25 +43,38 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+
+      {/* Admin shell — completely separate from user layout */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<AdminHome />} />
+        <Route path="transactions" element={<AdminTransactions />} />
+        <Route path="players" element={<AdminPlayers />} />
+      </Route>
+
+      {/* Normal user shell — admins get redirected to /admin */}
       <Route
         path="/"
         element={
           <ProtectedRoute>
-            <Layout />
+            <UserRoute>
+              <Layout />
+            </UserRoute>
           </ProtectedRoute>
         }
       >
         <Route index element={<Dashboard />} />
         <Route path="loans" element={<Loans />} />
         <Route path="transactions" element={<Transactions />} />
-        <Route
-          path="admin"
-          element={
-            <AdminRoute>
-              <Admin />
-            </AdminRoute>
-          }
-        />
+        <Route path="players" element={<Players />} />
       </Route>
     </Routes>
   )
@@ -65,3 +89,5 @@ export default function App() {
     </AuthProvider>
   )
 }
+
+

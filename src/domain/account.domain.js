@@ -23,6 +23,48 @@ export const requestWithdrawal = async (userId, amount) => {
   await createMoneyRequest({ userId, type: 'withdrawal', amount })
 }
 
+// ── User-facing: instant peer-to-peer transfer (no admin approval) ───────────
+export const transfer = async (fromId, toId, amount, note) => {
+  if (!amount || amount <= 0) throw new Error('Amount must be positive')
+  if (fromId === toId) throw new Error('Cannot transfer to yourself')
+
+  const fromRef = doc(db, 'users', fromId)
+  const toRef = doc(db, 'users', toId)
+  let fromNewBalance, toNewBalance
+
+  await runTransaction(db, async (tx) => {
+    const fromSnap = await tx.get(fromRef)
+    const toSnap = await tx.get(toRef)
+    if (!fromSnap.exists()) throw new Error('Sender account not found')
+    if (!toSnap.exists()) throw new Error('Recipient account not found')
+
+    const fromBalance = fromSnap.data().balance
+    if (fromBalance < amount)
+      throw new Error(`Insufficient balance. Available: ₹${fromBalance.toLocaleString('en-IN')}`)
+
+    fromNewBalance = fromBalance - amount
+    toNewBalance = toSnap.data().balance + amount
+
+    tx.update(fromRef, { balance: fromNewBalance })
+    tx.update(toRef, { balance: toNewBalance })
+    tx.set(doc(collection(db, 'transactions')), {
+      fromId,
+      toId,
+      amount,
+      type: 'transfer',
+      note: note || null,
+      timestamp: serverTimestamp(),
+      fromBalanceAfter: fromNewBalance,
+      toBalanceAfter: toNewBalance,
+    })
+  })
+
+  await Promise.all([
+    recordDailyBalance(fromId, fromNewBalance),
+    recordDailyBalance(toId, toNewBalance),
+  ])
+}
+
 // ── Admin-facing: approve or reject a pending money request ──────────────────
 
 export const approveMoneyRequest = async (requestId) => {
@@ -59,6 +101,9 @@ export const approveMoneyRequest = async (requestId) => {
       amount: reqData.amount,
       type: reqData.type,
       timestamp: serverTimestamp(),
+      ...(reqData.type === 'deposit'
+        ? { toBalanceAfter: newBalance }
+        : { fromBalanceAfter: newBalance }),
     })
   })
 

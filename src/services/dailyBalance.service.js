@@ -1,4 +1,4 @@
-import { doc, setDoc, collection, query, where, orderBy, limit, getDocs, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, collection, query, where, limit, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { format } from 'date-fns'
 
@@ -13,13 +13,16 @@ export const recordDailyBalance = async (userId, balance) => {
 }
 
 export const getDailyBalances = async (userId, days = 30) => {
+  // No orderBy on compound query — avoids composite index requirement.
   const snap = await getDocs(
     query(
       collection(db, 'dailyBalances'),
       where('userId', '==', userId),
-      orderBy('date', 'desc'),
       limit(days)
     )
   )
-  return snap.docs.map((d) => d.data()).reverse()
+  return snap.docs
+    .map((d) => d.data())
+    .sort((a, b) => (a.date > b.date ? 1 : -1))
+    .slice(-days)
 }

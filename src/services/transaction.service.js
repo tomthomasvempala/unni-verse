@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
-export const subscribeToUserTransactions = (userId, callback, maxResults = 100) => {
+export const subscribeToUserTransactions = (userId, callback, maxResults = 200) => {
   let asSender = []
   let asReceiver = []
 
@@ -23,16 +23,16 @@ export const subscribeToUserTransactions = (userId, callback, maxResults = 100) 
     callback(all)
   }
 
+  // No orderBy on compound queries — avoids composite index requirement.
+  // Sorting is done client-side in merge() above.
   const q1 = query(
     collection(db, 'transactions'),
     where('fromId', '==', userId),
-    orderBy('timestamp', 'desc'),
     limit(maxResults)
   )
   const q2 = query(
     collection(db, 'transactions'),
     where('toId', '==', userId),
-    orderBy('timestamp', 'desc'),
     limit(maxResults)
   )
 

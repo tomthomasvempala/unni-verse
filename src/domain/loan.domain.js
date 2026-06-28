@@ -59,6 +59,8 @@ export const acceptLoan = async (loanId) => {
       type: 'loan_disbursement',
       loanId,
       timestamp: serverTimestamp(),
+      fromBalanceAfter: lenderBalance - loanData.requestedAmount,
+      toBalanceAfter: borrowerSnap.data().balance + loanData.requestedAmount,
     })
   })
 
@@ -76,6 +78,35 @@ export const acceptLoan = async (loanId) => {
 // ── Step 3b: Either party rejects the loan ───────────────────────────────────
 export const rejectLoan = async (loanId) => {
   await updateLoan(loanId, { status: 'rejected' })
+}
+
+// ── Lender: reduce remaining balance by a custom amount (forgive part) ───────
+export const adjustLoanBalance = async (loanId, reduction) => {
+  if (!reduction || reduction <= 0) throw new Error('Reduction must be positive')
+  const loanRef = doc(db, 'loans', loanId)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(loanRef)
+    if (!snap.exists()) throw new Error('Loan not found')
+    const loan = snap.data()
+    if (loan.status !== 'active') throw new Error('Loan is not active')
+    const newRemaining = Math.max(0, loan.remainingBalance - reduction)
+    tx.update(loanRef, {
+      remainingBalance: newRemaining,
+      status: newRemaining <= 0 ? 'repaid' : 'active',
+      updatedAt: serverTimestamp(),
+    })
+  })
+}
+
+// ── Lender: fully settle/forgive the remaining balance ───────────────────────
+export const settleLoan = async (loanId) => {
+  const loanRef = doc(db, 'loans', loanId)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(loanRef)
+    if (!snap.exists()) throw new Error('Loan not found')
+    if (snap.data().status !== 'active') throw new Error('Loan is not active')
+    tx.update(loanRef, { remainingBalance: 0, status: 'repaid', updatedAt: serverTimestamp() })
+  })
 }
 
 // ── Ongoing: Borrower repays any amount at any time ──────────────────────────
@@ -125,6 +156,8 @@ export const repayLoan = async (loanId, repayerId, amount) => {
       type: 'loan_repayment',
       loanId,
       timestamp: serverTimestamp(),
+      fromBalanceAfter: repayerNewBalance,
+      toBalanceAfter: lenderNewBalance,
     })
   })
 

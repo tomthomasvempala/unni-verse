@@ -4,10 +4,9 @@ import { subscribeToUserLoans, subscribeToAllLoans } from '../services/loan.serv
 export const useLoans = (userId, isAdmin = false) => {
   const [loans, setLoans] = useState([])
   useEffect(() => {
+    if (isAdmin) return subscribeToAllLoans(setLoans)
     if (!userId) return
-    return isAdmin
-      ? subscribeToAllLoans(setLoans)
-      : subscribeToUserLoans(userId, setLoans)
+    return subscribeToUserLoans(userId, setLoans)
   }, [userId, isAdmin])
   return loans
 }

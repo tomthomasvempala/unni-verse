@@ -1,15 +1,11 @@
 import { useState } from 'react'
-import { Plus, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, Clock, CheckCircle, XCircle, Send, Landmark } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { useTransactions } from '../hooks/useTransactions'
-import { useLoans } from '../hooks/useLoans'
 import { useUsers } from '../hooks/useUsers'
 import { useMoneyRequests } from '../hooks/useMoneyRequests'
 import BalanceCard from '../components/BalanceCard'
-import TransactionItem from '../components/TransactionItem'
-import LoanCard from '../components/LoanCard'
 import Modal from '../components/Modal'
-import { requestDeposit, requestWithdrawal } from '../domain/account.domain'
+import { requestDeposit, requestWithdrawal, transfer } from '../domain/account.domain'
 import { requestLoan } from '../domain/loan.domain'
 import { CURRENCY_SYMBOL } from '../config/constants'
 
@@ -61,8 +57,6 @@ function AmountModal({ isOpen, onClose, title, subtitle, onSubmit, balance, load
 
 export default function Dashboard() {
   const { userProfile } = useAuth()
-  const transactions = useTransactions(userProfile?.id)
-  const loans = useLoans(userProfile?.id)
   const users = useUsers()
   const moneyRequests = useMoneyRequests(userProfile?.id)
 
@@ -71,6 +65,9 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [loanLenderId, setLoanLenderId] = useState('')
   const [loanAmount, setLoanAmount] = useState('')
+  const [transferToId, setTransferToId] = useState('')
+  const [transferAmount, setTransferAmount] = useState('')
+  const [transferNote, setTransferNote] = useState('')
 
   const closeModal = () => { setModal(null); setError('') }
 
@@ -87,13 +84,12 @@ export default function Dashboard() {
     }
   }
 
-  const activeLoans = loans.filter((l) => l.status === 'active')
-  const pendingLoans = loans.filter((l) => ['pending', 'offered'].includes(l.status))
-  const recentRequests = moneyRequests.slice(0, 4)
+  const recentRequests = moneyRequests.slice(0, 6)
+  const otherUsers = users.filter((u) => u.id !== userProfile?.id && !u.isAdmin)
 
   return (
     <div className="p-4 md:p-6 max-w-2xl space-y-6">
-      <h1 className="text-white text-2xl font-bold hidden md:block">Dashboard</h1>
+      <h1 className="text-white text-2xl font-bold hidden md:block">Home</h1>
 
       <BalanceCard
         balance={userProfile?.balance}
@@ -101,13 +97,23 @@ export default function Dashboard() {
         onWithdraw={() => setModal('withdraw')}
       />
 
-      <button
-        onClick={() => setModal('loan')}
-        className="flex items-center gap-2 w-full justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
-      >
-        <Plus size={16} />
-        Request Loan from Someone
-      </button>
+      {/* Quick actions */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setModal('loan')}
+          className="flex items-center gap-2 justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white py-3 rounded-xl text-sm font-medium transition-colors"
+        >
+          <Landmark size={16} />
+          Request Loan
+        </button>
+        <button
+          onClick={() => setModal('transfer')}
+          className="flex items-center gap-2 justify-center bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white py-3 rounded-xl text-sm font-medium transition-colors"
+        >
+          <Send size={16} />
+          Transfer
+        </button>
+      </div>
 
       {/* Money request history */}
       {recentRequests.length > 0 && (
@@ -138,46 +144,6 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-
-      {/* Pending / offered loans need attention */}
-      {pendingLoans.length > 0 && (
-        <section>
-          <h2 className="text-white text-base font-semibold mb-3">Needs Attention</h2>
-          <div className="space-y-3">
-            {pendingLoans.map((loan) => (
-              <LoanCard key={loan.id} loan={loan} currentUserId={userProfile?.id} users={users} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Active loans */}
-      {activeLoans.length > 0 && (
-        <section>
-          <h2 className="text-white text-base font-semibold mb-3">Active Loans</h2>
-          <div className="space-y-3">
-            {activeLoans.slice(0, 3).map((loan) => (
-              <LoanCard key={loan.id} loan={loan} currentUserId={userProfile?.id} users={users} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Recent transactions */}
-      <section>
-        <h2 className="text-white text-base font-semibold mb-3">Recent Transactions</h2>
-        {transactions.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-10">No transactions yet</p>
-        ) : (
-          <div className="bg-gray-800 border border-gray-700 rounded-xl divide-y divide-gray-700/50">
-            {transactions.slice(0, 5).map((tx) => (
-              <div key={tx.id} className="px-4">
-                <TransactionItem transaction={tx} currentUserId={userProfile?.id} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       {/* Deposit modal */}
       <AmountModal
@@ -213,11 +179,9 @@ export default function Dashboard() {
               className={inputCls}
             >
               <option value="">Select user</option>
-              {users
-                .filter((u) => u.id !== userProfile?.id && !u.isAdmin)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>{u.displayName}</option>
-                ))}
+              {otherUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.displayName}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -246,6 +210,64 @@ export default function Dashboard() {
             className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
             {loading ? 'Sending…' : 'Send Request'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Transfer modal */}
+      <Modal isOpen={modal === 'transfer'} onClose={closeModal} title="Transfer Money">
+        <div className="space-y-4">
+          <p className="text-gray-400 text-sm">
+            Balance:{' '}
+            <span className="text-white font-medium">
+              {CURRENCY_SYMBOL}{userProfile?.balance?.toLocaleString('en-IN')}
+            </span>
+          </p>
+          <div>
+            <label className="text-gray-300 text-sm font-medium block mb-2">Send to</label>
+            <select
+              value={transferToId}
+              onChange={(e) => setTransferToId(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Select user</option>
+              {otherUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.displayName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-gray-300 text-sm font-medium block mb-2">Amount</label>
+            <input
+              type="number"
+              min={1}
+              placeholder={`Amount in ${CURRENCY_SYMBOL}`}
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-gray-300 text-sm font-medium block mb-2">Note (optional)</label>
+            <input
+              type="text"
+              placeholder="What's this for?"
+              value={transferNote}
+              onChange={(e) => setTransferNote(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button
+            onClick={() =>
+              run(() =>
+                transfer(userProfile.id, transferToId, parseFloat(transferAmount), transferNote)
+              )
+            }
+            disabled={loading || !transferToId || !transferAmount}
+            className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            {loading ? 'Sending…' : 'Send Transfer'}
           </button>
         </div>
       </Modal>
