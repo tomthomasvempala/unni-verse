@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #030712;
+    color: white;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+  }
+}

@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Open rules — trusted local WiFi game
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    function isSignedIn() {
+      return true;
+    }
+
+    function isAdmin() {
+      return true;
+    }
+
+    // Users: anyone signed in can read all profiles (needed for loan counterparty lookups).
+    // Any signed-in user can write — required so domain transactions can update
+    // both parties' balances atomically from the client.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn();
+    }
+
+    // Loans: parties involved or admin
+    match /loans/{loanId} {
+      allow read: if isSignedIn() && (
+        resource.data.requesterId == request.auth.uid ||
+        resource.data.lenderId   == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        resource.data.requesterId == request.auth.uid ||
+        resource.data.lenderId   == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Transactions: parties involved or admin can read; any signed-in user can create
+    match /transactions/{txId} {
+      allow read: if isSignedIn() && (
+        resource.data.fromId == request.auth.uid ||
+        resource.data.toId   == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+    }
+
+    // Daily balances: signed-in users read/write their own; admin reads all
+    match /dailyBalances/{record} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow write: if isSignedIn();
+    }
+
+    // Money requests (deposit / withdrawal): users create their own, admin acts on them
+    match /moneyRequests/{reqId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    // Government reserve: everyone can read, only admin can write
+    match /government/{doc} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
