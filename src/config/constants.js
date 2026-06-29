@@ -15,7 +15,4 @@ export const CURRENCY_SYMBOL = '₹'
 export const DEFAULT_BALANCE = 0
 
 export const GOVERNMENT_ID = 'government'
-
-// Admin username/password login (Email+Password auth in Firebase)
-export const ADMIN_EMAIL = 'admin@unniverse.game'
-export const ADMIN_PASSWORD = 'admin'
+export const ADMIN_PASSWORD_HASH = import.meta.env.VITE_ADMIN_PASSWORD_HASH ?? ''

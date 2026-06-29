@@ -4,7 +4,8 @@ import { onSnapshot, doc } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 import { signInWithGoogle, signOut as fbSignOut } from '../services/auth.service'
 import { createUserIfNotExists } from '../services/user.service'
-import { ADMIN_EMAILS, ADMIN_PASSWORD } from '../config/constants'
+import { sha256 } from 'js-sha256'
+import { ADMIN_EMAILS, ADMIN_PASSWORD_HASH } from '../config/constants'
 
 const FAKE_ADMIN_USER = {
   uid: 'government',
@@ -54,7 +55,8 @@ export const AuthProvider = ({ children }) => {
   const login = () => signInWithGoogle()
 
   const adminLogin = async (password) => {
-    if (password !== ADMIN_PASSWORD) throw new Error('Wrong admin password')
+    if (ADMIN_PASSWORD_HASH === '') throw new Error('Admin login is not configured')
+    if (sha256(password) !== ADMIN_PASSWORD_HASH) throw new Error('Wrong admin password')
     localStorage.setItem('adminSession', 'true')
     await createUserIfNotExists(FAKE_ADMIN_USER, true)
     setCurrentUser(FAKE_ADMIN_USER)
